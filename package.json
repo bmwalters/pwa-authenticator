@@ -1,0 +1,26 @@
+{
+	"name": "pwa-authenticator",
+	"version": "0.0.1",
+	"license": "MIT",
+	"scripts": {
+		"build": "npm-run-all --parallel build:copy build:compile-app build:compile-worker build:icons",
+		"build:copy": "mkdir -p build && cp -r src/index.html src/manifest.webmanifest src/images build/",
+		"build:compile-app": "tsc -p tsconfig.json --outDir build/",
+		"build:compile-worker": "rollup -c rollup.config.worker.js",
+		"build:icons": "node --input-type=module -e \"import sharp from 'sharp'; sharp('src/images/icon.svg', { density: 300 }).resize(180, 180).toFile('build/images/apple-touch-icon.png')\"",
+		"serve": "echo http://localhost:8080 && http-server build/ --silent --no-dotfiles"
+	},
+	"browserslist": [
+		"iOS 12.4",
+		"last 3 firefox versions"
+	],
+	"devDependencies": {
+		"@rollup/plugin-typescript": "^6.0.0",
+		"http-server": "^0.12.3",
+		"npm-run-all": "^4.1.5",
+		"prettier": "^2.1.2",
+		"rollup": "^2.27.1",
+		"sharp": "^0.26.0",
+		"typescript": "^4.0.3"
+	}
+}

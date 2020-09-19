@@ -1,0 +1,15 @@
+{
+	"name": "Authenticator",
+	"icons": [
+		{
+			"src": "/images/icon.svg",
+			"type": "image/svg+xml",
+			"sizes": "any",
+			"purpose": "any maskable"
+		}
+	],
+	"start_url": "/?source=pwa",
+	"display": "standalone",
+	"background_color": "#232332",
+	"theme_color": "#232332"
+}
