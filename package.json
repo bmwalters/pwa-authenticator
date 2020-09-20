@@ -3,11 +3,12 @@
 	"version": "0.0.1",
 	"license": "MIT",
 	"scripts": {
-		"build": "npm-run-all --parallel build:copy build:compile-app build:compile-worker build:icons",
+		"build": "npm-run-all --parallel build:copy build:compile-app build:compile-worker build:apple-touch-icon build:apple-startup-image",
 		"build:copy": "mkdir -p build && cp -r src/index.html src/manifest.webmanifest src/images build/",
 		"build:compile-app": "tsc -p tsconfig.json --outDir build/",
 		"build:compile-worker": "rollup -c rollup.config.worker.js",
-		"build:icons": "node --input-type=module -e \"import sharp from 'sharp'; sharp('src/images/icon.svg', { density: 300 }).resize(180, 180).toFile('build/images/apple-touch-icon.png')\"",
+		"build:apple-touch-icon": "node --input-type=module -e \"import sharp from 'sharp'; sharp('src/images/icon.svg', { density: 300 }).resize(180, 180).toFile('build/images/apple-touch-icon.png')\"",
+		"build:apple-startup-image": "node --input-type=module -e \"import sharp from 'sharp'; sharp({ create: { width: 1125, height: 2436, channels: 3, background: { r: 35, g: 35, b: 50 } } }).toFile('build/images/apple-startup-image.png')\"",
 		"serve": "echo http://localhost:8080 && http-server build/ --silent --no-dotfiles"
 	},
 	"browserslist": [
