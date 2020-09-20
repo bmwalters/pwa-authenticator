@@ -9,6 +9,279 @@
 		<link rel="apple-touch-icon" href="images/apple-touch-icon.png" />
 		<!-- <meta name="apple-mobile-web-app-capable" content="yes"> -->
 		<script type="module" src="index.js"></script>
+		<style>
+			html {
+				--dark-color: #232332;
+				--light-color: #faf8f0;
+				--translucent-light-color: rgba(250, 248, 240, 0.2);
+				--border-color: rgba(0, 0, 0, 0.3);
+			}
+
+			html,
+			body {
+				margin: 0;
+				height: 100%;
+			}
+
+			body {
+				background-color: var(--dark-color);
+				font-family: sans-serif;
+				color: var(--light-color);
+				display: flex;
+				flex-direction: column;
+			}
+
+			/* header */
+
+			header {
+				flex: 0 0 auto;
+				padding: 5px 8px;
+				border-bottom: 1px solid var(--border-color);
+			}
+
+			#searchbar {
+				background-color: var(--translucent-light-color);
+				padding: 4px 2px;
+				display: flex;
+				border-radius: 4px;
+				position: relative; /* for <h1> */
+			}
+
+			#progress-ring {
+				width: 22px;
+				height: 22px;
+				flex: 0 0 auto;
+			}
+
+			#progress-ring circle.track {
+				stroke: var(--translucent-light-color);
+			}
+
+			#progress-ring circle.ring {
+				stroke: var(--light-color);
+				stroke-dasharray: 43.9823px 43.9823px; /* 2 * PI * r */
+				stroke-dashoffset: 0; /* (1 - pct) * circumference */
+				transform: rotate(-90deg) scaleY(-1);
+				transform-origin: 50% 50%;
+			}
+
+			#progress-ring.animating circle.ring {
+				transition: stroke-dashoffset 0.99s linear;
+			}
+
+			#search-text {
+				flex: 1 1 auto;
+				background-color: transparent;
+				border: none;
+				color: var(--light-color);
+				font-size: 14px;
+			}
+
+			#searchbar h1 {
+				font-size: 14px;
+				margin: 0;
+				position: absolute;
+				top: 9px;
+				width: calc(100% - 4px);
+				text-align: center;
+				pointer-events: none;
+			}
+
+			#search-text:focus + h1 {
+				display: none;
+			}
+
+			/* footer */
+
+			footer {
+				flex: 0 0 auto;
+				padding: 8px 24px 4px 24px;
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				border-top: 1px solid var(--border-color);
+			}
+
+			footer .icon {
+				font-size: 24px;
+			}
+
+			footer > * {
+				flex: 1 0 0; /* equally distribute parent width */
+			}
+
+			footer > :nth-child(1) {
+				text-align: left;
+			}
+
+			footer > :nth-child(2) {
+				text-align: center;
+			}
+
+			footer > :nth-child(3) {
+				text-align: right;
+			}
+
+			footer button,
+			.token-detail-left button,
+			.token-detail-right button {
+				border: none;
+				padding: 0;
+				background-color: transparent;
+				font-size: 16px;
+				color: var(--light-color);
+				cursor: pointer;
+			}
+
+			/* token list */
+
+			main {
+				flex: 1 1 auto;
+				padding: 24px;
+				overflow-y: scroll;
+			}
+
+			.token-list {
+				list-style: none;
+				margin: 0;
+				padding: 0;
+			}
+
+			.token-list .token {
+				display: flex;
+				flex-direction: column;
+				justify-content: center;
+				align-items: center;
+			}
+
+			.token-list .token:not(:last-child) {
+				margin-bottom: 24px;
+			}
+
+			.token-list .token > :not(:last-child) {
+				margin-bottom: 4px;
+			}
+
+			.token .token-metadata {
+				flex: 0 0 auto;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-size: 12px;
+			}
+
+			.token-metadata .issuer {
+				font-weight: bold;
+			}
+
+			.token-metadata :not(:last-child) {
+				margin-right: 4px;
+			}
+
+			.token .token-details {
+				flex: 1 0 auto;
+				width: 100%;
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				font-size: 48px;
+			}
+
+			.token .token-details .token-detail-left,
+			.token .token-details .token-detail-right {
+				flex: 1 0 30px;
+			}
+
+			.token .token-details .token-detail-right {
+				text-align: right;
+			}
+
+			.token .token-details .token-token {
+				flex: 1 1 auto;
+				text-align: center;
+			}
+
+			.token-details .drag-handle {
+				cursor: move;
+			}
+
+			.token .token-details .icon {
+				font-size: 24px;
+			}
+		</style>
 	</head>
-	<body></body>
+	<body>
+		<header>
+			<div id="searchbar">
+				<svg id="progress-ring" width="22" height="22">
+					<circle
+						class="track"
+						stroke-width="2"
+						fill="transparent"
+						r="7"
+						cx="11"
+						cy="11"
+					/>
+					<circle
+						class="ring"
+						stroke-width="2"
+						fill="transparent"
+						r="7"
+						cx="11"
+						cy="11"
+					/>
+				</svg>
+				<input id="search-text" type="text" />
+				<h1>Authenticator</h1>
+			</div>
+		</header>
+		<main>
+			<ol class="token-list">
+				<li class="token">
+					<div class="token-metadata">
+						<span class="issuer">some Issuer</span
+						><span class="account">foo</span>
+					</div>
+					<div class="token-details">
+						<div class="token-detail-left"></div>
+						<span class="token-token">05 82 43</span>
+						<div class="token-detail-right"></div>
+					</div>
+				</li>
+				<li class="token">
+					<div class="token-metadata">
+						<span class="issuer">Some Issuer 2</span
+						><span class="account">foo2</span>
+					</div>
+					<div class="token-details">
+						<div class="token-detail-left">
+							<span class="drag-handle icon">☰</span>
+						</div>
+						<span class="token-token">73 69 97 1</span>
+						<div class="token-detail-right">
+							<button class="increment-counter icon">＋</button>
+						</div>
+					</div>
+				</li>
+				<li class="token">
+					<div class="token-metadata">
+						<span class="issuer">Valve</span
+						><span class="account">mysteamacc</span>
+					</div>
+					<div class="token-details">
+						<div class="token-detail-left"></div>
+						<span class="token-token">Y6 N2 K</span>
+						<div class="token-detail-right">
+							<button class="increment-counter icon">＋</button>
+						</div>
+					</div>
+				</li>
+			</ol>
+		</main>
+		<footer>
+			<button>Edit</button>
+			<button class="icon">ⓘ</button>
+			<button class="icon">＋</button>
+		</footer>
+	</body>
 </html>
