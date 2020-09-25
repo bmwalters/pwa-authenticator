@@ -9,19 +9,25 @@
 		"build:compile-worker": "rollup -c rollup.config.worker.js",
 		"build:apple-touch-icon": "node --input-type=module -e \"import sharp from 'sharp'; sharp('src/images/icon.svg', { density: 300 }).resize(180, 180).toFile('build/images/apple-touch-icon.png')\"",
 		"build:apple-startup-image": "node --input-type=module -e \"import sharp from 'sharp'; sharp({ create: { width: 1125, height: 2436, channels: 3, background: { r: 35, g: 35, b: 50 } } }).toFile('build/images/apple-startup-image.png')\"",
+		"test": "jest",
 		"serve": "echo http://localhost:8080 && http-server build/ --silent --no-dotfiles"
 	},
 	"browserslist": [
 		"iOS 12.4",
 		"last 3 firefox versions"
 	],
+	"dependencies": {},
 	"devDependencies": {
 		"@rollup/plugin-typescript": "^6.0.0",
 		"http-server": "^0.12.3",
+		"jest": "^26.4.2",
+		"jest-ts-webcompat-resolver": "^1.0.0",
 		"npm-run-all": "^4.1.5",
 		"prettier": "^2.1.2",
 		"rollup": "^2.27.1",
 		"sharp": "^0.26.0",
+		"ts-jest": "^26.4.0",
+		"tslib": "^2.0.1",
 		"typescript": "^4.0.3"
 	}
 }

@@ -1,6 +1,6 @@
 // TODO: lint with lighthouse
 
-import { math } from "./foo-module.js"
+import * as otpauth from "./otp/uri.js"
 
 let time = 30
 
@@ -90,7 +90,7 @@ const setupDragAndDrop = () => {
 const main = async () => {
 	await navigator.serviceWorker.register("./service-worker.js")
 
-	console.log("Here's math", math(1, 0))
+	console.log("here's an otpauth token", otpauth.parse("otpauth://totp/Example:alice@google.com?secret=JBSWY3DPEHPK3PXP&issuer=Example"))
 
 	setTimeout(updateProgressRing, 1000)
 
