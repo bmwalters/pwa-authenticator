@@ -32,5 +32,16 @@ export type TOTPToken = TokenBase & {
 	readonly period: number
 }
 
+/** The data required to generate a Steamguard OTP. */
+export interface SteamguardToken {
+	readonly type: "steamguard"
+
+	/** Steam account name. */
+	readonly accountName: string
+
+	/** TODO: Doc */
+	readonly secret: ArrayBuffer
+}
+
 /** The data required to generate either a HOTP or TOTP key. */
-export type Token = HOTPToken | TOTPToken
+export type Token = HOTPToken | TOTPToken | SteamguardToken
