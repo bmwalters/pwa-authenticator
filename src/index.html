@@ -40,16 +40,83 @@
 				background-color: var(--dark-color);
 				font-family: sans-serif;
 				color: var(--light-color);
+			}
+
+			body > section {
+				position: absolute;
+				width: 100%;
+				height: 100%;
 				display: flex;
 				flex-direction: column;
 			}
 
-			/* header */
+			body > section[hidden] {
+				display: none;
+			}
 
 			header {
+				border-bottom: 1px solid var(--border-color);
+			}
+
+			footer {
+				border-top: 1px solid var(--border-color);
+			}
+
+			/* top or bottom navigation bar */
+
+			header > nav,
+			footer > nav {
+				flex: 0 0 auto;
+				padding: 8px 24px 4px 24px;
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+			}
+
+			header > nav .icon,
+			footer > nav .icon {
+				font-size: 24px;
+			}
+
+			header > nav h1 {
+				margin: 0;
+				font-weight: normal;
+			}
+
+			header > nav > *,
+			footer > nav > * {
+				flex: 1 0 0; /* equally distribute parent width */
+			}
+
+			header > nav > :nth-child(1),
+			footer > nav > :nth-child(1) {
+				text-align: left;
+			}
+
+			header > nav > :nth-child(2),
+			footer > nav > :nth-child(2) {
+				text-align: center;
+			}
+
+			header > nav > :nth-child(3),
+			footer > nav > :nth-child(3) {
+				text-align: right;
+			}
+
+			button.plain {
+				border: none;
+				padding: 0;
+				background-color: transparent;
+				color: inherit;
+				font-size: inherit;
+				cursor: pointer;
+			}
+
+			/* header */
+
+			#token-list-page header {
 				flex: 0 0 auto;
 				padding: 5px 8px;
-				border-bottom: 1px solid var(--border-color);
 			}
 
 			#searchbar {
@@ -104,51 +171,9 @@
 				display: none;
 			}
 
-			/* footer */
-
-			footer {
-				flex: 0 0 auto;
-				padding: 8px 24px 4px 24px;
-				display: flex;
-				justify-content: space-between;
-				align-items: center;
-				border-top: 1px solid var(--border-color);
-			}
-
-			footer .icon {
-				font-size: 24px;
-			}
-
-			footer > * {
-				flex: 1 0 0; /* equally distribute parent width */
-			}
-
-			footer > :nth-child(1) {
-				text-align: left;
-			}
-
-			footer > :nth-child(2) {
-				text-align: center;
-			}
-
-			footer > :nth-child(3) {
-				text-align: right;
-			}
-
-			footer button,
-			.token-detail-left button,
-			.token-detail-right button {
-				border: none;
-				padding: 0;
-				background-color: transparent;
-				font-size: 16px;
-				color: var(--light-color);
-				cursor: pointer;
-			}
-
 			/* token list */
 
-			main {
+			#token-list-page > section {
 				flex: 1 1 auto;
 				padding: 24px;
 				overflow-y: scroll;
@@ -221,80 +246,170 @@
 			.token .token-details .icon {
 				font-size: 24px;
 			}
+
+			/* add token */
+
+			#add-token-page section label,
+			#add-token page section label input {
+				display: block;
+			}
 		</style>
 	</head>
 	<body>
-		<header>
-			<div id="searchbar">
-				<svg id="progress-ring" width="22" height="22">
-					<circle
-						class="track"
-						stroke-width="2"
-						fill="transparent"
-						r="7"
-						cx="11"
-						cy="11"
-					/>
-					<circle
-						class="ring"
-						stroke-width="2"
-						fill="transparent"
-						r="7"
-						cx="11"
-						cy="11"
-					/>
-				</svg>
-				<input id="search-text" type="text" />
-				<h1>Authenticator</h1>
-			</div>
-		</header>
-		<main>
-			<ol class="token-list">
-				<li class="token">
-					<div class="token-metadata">
-						<span class="issuer">some Issuer</span
-						><span class="account">foo</span>
-					</div>
-					<div class="token-details">
-						<div class="token-detail-left"></div>
-						<span class="token-token">05 82 43</span>
-						<div class="token-detail-right"></div>
-					</div>
-				</li>
-				<li class="token">
-					<div class="token-metadata">
-						<span class="issuer">Some Issuer 2</span
-						><span class="account">foo2</span>
-					</div>
-					<div class="token-details">
-						<div class="token-detail-left">
-							<span class="drag-handle icon">☰</span>
+		<section id="token-list-page">
+			<header>
+				<div id="searchbar">
+					<svg id="progress-ring" width="22" height="22">
+						<circle
+							class="track"
+							stroke-width="2"
+							fill="transparent"
+							r="7"
+							cx="11"
+							cy="11"
+						/>
+						<circle
+							class="ring"
+							stroke-width="2"
+							fill="transparent"
+							r="7"
+							cx="11"
+							cy="11"
+						/>
+					</svg>
+					<input id="search-text" type="text" />
+					<h1>Authenticator</h1>
+				</div>
+			</header>
+			<section>
+				<ol class="token-list">
+					<li class="token">
+						<div class="token-metadata">
+							<span class="issuer">some Issuer</span><span class="account">foo</span>
 						</div>
-						<span class="token-token">73 69 97 1</span>
-						<div class="token-detail-right">
-							<button class="increment-counter icon">＋</button>
+						<div class="token-details">
+							<div class="token-detail-left"></div>
+							<span class="token-token">05 82 43</span>
+							<div class="token-detail-right"></div>
 						</div>
-					</div>
-				</li>
-				<li class="token">
-					<div class="token-metadata">
-						<span class="issuer">Valve</span
-						><span class="account">mysteamacc</span>
-					</div>
-					<div class="token-details">
-						<div class="token-detail-left"></div>
-						<span class="token-token">Y6 N2 K</span>
-						<div class="token-detail-right">
-							<button class="increment-counter icon">＋</button>
+					</li>
+					<li class="token">
+						<div class="token-metadata">
+							<span class="issuer">Some Issuer 2</span><span class="account">foo2</span>
 						</div>
+						<div class="token-details">
+							<div class="token-detail-left">
+								<span class="drag-handle icon">☰</span>
+							</div>
+							<span class="token-token">73 69 97 1</span>
+							<div class="token-detail-right">
+								<button class="plain increment-counter icon">＋</button>
+							</div>
+						</div>
+					</li>
+					<li class="token">
+						<div class="token-metadata">
+							<span class="issuer">Valve</span><span class="account">mysteamacc</span>
+						</div>
+						<div class="token-details">
+							<div class="token-detail-left"></div>
+							<span class="token-token">Y6 N2 K</span>
+							<div class="token-detail-right">
+								<button class="plain increment-counter icon">＋</button>
+							</div>
+						</div>
+					</li>
+				</ol>
+			</section>
+			<footer>
+				<nav>
+					<button class="plain">Edit</button>
+					<button class="plain icon">ⓘ</button>
+					<button class="plain icon button-add-token">＋</button>
+				</nav>
+			</footer>
+		</section>
+
+		<section id="add-token-page" hidden>
+			<header>
+				<nav>
+					<button class="plain button-cancel">Cancel</button>
+					<h1>Add Token</h1>
+					<button class="plain">Done</button>
+				</nav>
+			</header>
+			<section>
+				<label>
+					Issuer
+					<input type="text" name="issuer" required>
+				</label>
+				<label>
+					Account Name
+					<input type="text" name="account">
+				</label>
+				<label>
+					Secret Key
+					<input type="text" name="secret" required>
+				</label>
+				<details>
+					<summary>Advanced Options</summary>
+
+					<div class="radio-group">
+						<label>
+							Time Based
+							<input type="radio" name="algorithm" value="totp">
+						</label>
+						<label>
+							Counter Based
+							<input type="radio" name="algorithm" value="hotp">
+						</label>
 					</div>
-				</li>
-			</ol>
-		</main>
-		<footer>
-			<button>Edit</button>
-			<button class="icon">ⓘ</button>
-			<button class="icon">＋</button>
-		</footer>
+
+					<div class="radio-group">
+						<label>
+							6 Digits
+							<input type="radio" name="digits" value="6">
+						</label>
+						<label>
+							7 Digits
+							<input type="radio" name="digits" value="7">
+						</label>
+						<label>
+							8 Digits
+							<input type="radio" name="digits" value="8">
+						</label>
+					</div>
+
+					<div class="radio-group">
+						<label>
+							SHA-1
+							<input type="radio" name="hash-algorithm" value="SHA-1">
+						</label>
+						<label>
+							SHA-256
+							<input type="radio" name="hash-algorithm" value="SHA-256">
+						</label>
+						<label>
+							SHA-512
+							<input type="radio" name="hash-algorithm" value="SHA-512">
+						</label>
+					</div>
+			</section>
+		</section>
+
+		<script>
+			const routes = {
+				"": "#token-list-page",
+				"add": "#add-token-page"
+			}
+
+			let hash = window.location.hash.substring(2)
+			if (!routes.hasOwnProperty(hash))
+				hash = ""
+
+			Object.entries(routes).forEach(([route, selector]) => {
+				document.querySelector(selector).hidden = hash !== route
+			})
+		</script>
 	</body>
 </html>

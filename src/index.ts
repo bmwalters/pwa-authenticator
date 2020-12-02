@@ -1,12 +1,19 @@
 // TODO: lint with lighthouse
 
 import * as otpauth from "./otp/uri.js"
+import { generate as totp } from './otp/totp.js'
 
 let time = 30
 
 const updateProgressRing = () => {
 	const progressRing = document.querySelector<HTMLElement>("#progress-ring")!
 	progressRing.classList.add("animating")
+
+	const token = otpauth.parse("otpauth://totp/Example:alice@google.com?secret=JBSWY3DPEHPK3PXP&issuer=Example")
+	if (token.type === "totp")
+		totp(token, new Date())
+			.then((token) => document.querySelector<HTMLElement>(".token-token")!.innerText = token)
+			.catch(console.error)
 
 	time -= 1
 	if (time < 0) {
@@ -87,14 +94,42 @@ const setupDragAndDrop = () => {
 	})
 }
 
+// routes are defined in index.html.
+declare const routes: Record<"" | "add", string>
+
 const main = async () => {
 	await navigator.serviceWorker.register("./service-worker.js")
-
-	console.log("here's an otpauth token", otpauth.parse("otpauth://totp/Example:alice@google.com?secret=JBSWY3DPEHPK3PXP&issuer=Example"))
 
 	setTimeout(updateProgressRing, 1000)
 
 	setupDragAndDrop()
+
+	const onHashChange = () => {
+		let hash = window.location.hash.substring(2)
+		if (!routes.hasOwnProperty(hash))
+			hash = ""
+
+		Object.entries(routes).forEach(([route, selector]) => {
+			document.querySelector<HTMLElement>(selector)!.hidden = hash !== route
+		})
+	}
+	window.addEventListener("hashchange", onHashChange)
+	// initial routing based on window.location.hash is performed in index.html.
+
+	const navigate = (route: keyof typeof routes) => {
+		if (route === "") {
+			history.pushState(undefined, "", ".")
+			onHashChange()
+		} else {
+			window.location.hash = "/" + route
+		}
+	}
+
+	document.querySelector<HTMLButtonElement>("#token-list-page .button-add-token")
+		?.addEventListener("click", () => navigate("add"))
+
+	document.querySelector<HTMLButtonElement>("#add-token-page .button-cancel")
+		?.addEventListener("click", () => navigate(""))
 }
 
 main().catch(console.error)
