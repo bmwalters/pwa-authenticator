@@ -2,11 +2,12 @@
 	"name": "pwa-authenticator",
 	"version": "0.0.1",
 	"license": "MIT",
+	"private": true,
 	"scripts": {
-		"build": "npm-run-all --parallel build:copy build:compile-app build:compile-worker build:apple-touch-icon build:apple-startup-image",
+		"build": "npm-run-all build:copy --parallel build:compile-app build:compile-worker build:apple-touch-icon build:apple-startup-image",
 		"build:copy": "mkdir -p build && cp -r src/index.html src/manifest.webmanifest src/images build/",
-		"build:compile-app": "tsc -p tsconfig.json --outDir build/",
-		"build:compile-worker": "esbuild src/worker/service-worker.ts --bundle --target=ios12.4,firefox80 --outfile=build/service-worker.js",
+		"build:compile-app": "esbuild src/index.ts --bundle --sourcemap --target=ios12.4,firefox80 --outfile=build/index.js",
+		"build:compile-worker": "esbuild src/worker/service-worker.ts --bundle --sourcemap --target=ios12.4,firefox80 --outfile=build/service-worker.js",
 		"build:apple-touch-icon": "node --input-type=module -e \"import sharp from 'sharp'; sharp('src/images/icon.svg', { density: 300 }).resize(180, 180).toFile('build/images/apple-touch-icon.png')\"",
 		"build:apple-startup-image": "node --input-type=module -e \"import sharp from 'sharp'; sharp({ create: { width: 1125, height: 2436, channels: 3, background: { r: 35, g: 35, b: 50 } } }).toFile('build/images/apple-startup-image.png')\"",
 		"test": "jest",
@@ -16,7 +17,9 @@
 		"iOS 12.4",
 		"last 3 firefox versions"
 	],
-	"dependencies": {},
+	"dependencies": {
+		"idb": "^5.0.7"
+	},
 	"devDependencies": {
 		"esbuild": "^0.8.17",
 		"http-server": "^0.12.3",

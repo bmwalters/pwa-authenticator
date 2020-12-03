@@ -1,22 +1,74 @@
-// TODO: lint with lighthouse
-
+import * as hotp from "./otp/hotp.js"
+import * as totp from "./otp/totp.js"
+import * as steamguard from "./otp/steamguard.js"
 import * as otpauth from "./otp/uri.js"
-import { generate as totp } from './otp/totp.js'
+import { listTokens, addToken } from "./store.js"
 
-let time = 30
+let inDragDrop = false
+
+const renderTokens = async () => {
+	const tokens = await listTokens()
+	const now = new Date()
+	const generated = await Promise.all(tokens.map((token) => {
+		switch (token.type) {
+		case "totp":
+			return totp.generate(token, now)
+		case "hotp":
+			return hotp.generate(token)
+		case "steamguard":
+			return steamguard.generate(token.secret, now)
+		}
+	}))
+
+	const tokenList = document.querySelector("#token-list-page .token-list")!
+	const tokenElements = tokenList.children
+	const tokenTemplate = document.querySelector<HTMLTemplateElement>("#token-template")!
+
+	if (tokenElements.length > tokens.length) {
+		Array.from(tokenElements)
+			.slice(tokens.length - tokenElements.length)
+			.forEach((element) => element.remove())
+	}
+
+	if (tokens.length > tokenElements.length) {
+		for (let i = tokenElements.length; i < tokens.length; i++) {
+			const token = tokenTemplate.content.cloneNode(true)
+			tokenList.appendChild(token)
+		}
+	}
+
+	tokens.forEach((token, i) => {
+		const otp = generated[i]!
+		const element = tokenList.children[i]!
+
+		element.querySelector<HTMLElement>(".issuer")!.innerText =
+			token.type === "steamguard" ? "Steam" : token.issuer || ""
+
+		element.querySelector<HTMLElement>(".account")!.innerText =
+			token.accountName
+
+		const drag = element.querySelector<HTMLElement>(".drag-handle")!
+		if (inDragDrop) drag.removeAttribute("hidden")
+		else drag.setAttribute("hidden", "")
+		// TODO: Attach drag/drop event listeners to new elements.
+
+		const increment = element.querySelector<HTMLElement>(".increment-counter")!
+		if (token.type === "hotp") increment.removeAttribute("hidden")
+		else increment.setAttribute("hidden", "")
+
+		element.querySelector<HTMLElement>(".token-token")!.innerText = otp
+	})
+}
+
+let time = 29 - Math.floor((Date.now() / 1000) % 30)
 
 const updateProgressRing = () => {
 	const progressRing = document.querySelector<HTMLElement>("#progress-ring")!
 	progressRing.classList.add("animating")
 
-	const token = otpauth.parse("otpauth://totp/Example:alice@google.com?secret=JBSWY3DPEHPK3PXP&issuer=Example")
-	if (token.type === "totp")
-		totp(token, new Date())
-			.then((token) => document.querySelector<HTMLElement>(".token-token")!.innerText = token)
-			.catch(console.error)
-
 	time -= 1
 	if (time < 0) {
+		renderTokens().catch(console.error)
 		time = 30
 		progressRing.classList.remove("animating")
 	}
@@ -36,6 +88,9 @@ const updateProgressRing = () => {
 
 // TODO: Implement drag and drop on mobile
 const setupDragAndDrop = () => {
+	inDragDrop = true
+	// TODO: Implement leaving drag and drop mode & persist ordering
+
 	const isBefore = (el1: HTMLElement, el2: HTMLElement): boolean => {
 		if (el2.parentNode === el1.parentNode)
 			for (let cur = el1.previousSibling; cur; cur = cur.previousSibling)
@@ -83,6 +138,7 @@ const setupDragAndDrop = () => {
 		})
 
 		const handle = item.querySelector<HTMLElement>(".drag-handle")
+		handle?.removeAttribute("hidden")
 
 		handle?.addEventListener("mousedown", () => {
 			item.setAttribute("draggable", "true")
@@ -97,13 +153,36 @@ const setupDragAndDrop = () => {
 // routes are defined in index.html.
 declare const routes: Record<"" | "add", string>
 
+/** The name:value pairs from inputs in `#add-token-page form`. */
+interface AddTokenFormData {
+	account: string
+	issuer?: string
+	secret: string
+	algorithm: "totp" | "hotp"
+	digits: "6" | "7" | "8"
+	["hash-algorithm"]: "SHA1" | "SHA256" | "SHA512"
+}
+
+const addTokenFromForm = async (form: AddTokenFormData) => {
+	// convert form data to otpauth uri
+	const encodedAccount = encodeURIComponent(form.account)
+	const label = form.issuer ? `${encodeURIComponent(form.issuer)}:${encodedAccount}` : encodedAccount
+	const uri = `otpauth://${form.algorithm}/${label}?secret=${form.secret}&algorithm=${form["hash-algorithm"]}&digits=${form.digits}`
+
+	// parse otpauth uri to token model
+	const token = otpauth.parse(uri)
+	const importedToken = { ...token, secret: await hotp.importSecret(token) }
+
+	// add token to store
+	await addToken(importedToken)
+	// TODO: store.addTokenAndBackup(token, secret)
+}
+
 const main = async () => {
+	/* PWA initialization */
 	await navigator.serviceWorker.register("./service-worker.js")
 
-	setTimeout(updateProgressRing, 1000)
-
-	setupDragAndDrop()
-
+	/* hash router configuration */
 	const onHashChange = () => {
 		let hash = window.location.hash.substring(2)
 		if (!routes.hasOwnProperty(hash))
@@ -125,11 +204,39 @@ const main = async () => {
 		}
 	}
 
+	/* 'Token List' page */
+	renderTokens().catch(console.error)
+	setTimeout(updateProgressRing, 1000)
+
 	document.querySelector<HTMLButtonElement>("#token-list-page .button-add-token")
 		?.addEventListener("click", () => navigate("add"))
 
+	document.querySelector<HTMLButtonElement>("#token-list-page .button-edit")
+		?.addEventListener("click", () => setupDragAndDrop())
+
+	/* 'Add Token' page */
+	const addTokenForm = document.querySelector<HTMLFormElement>("#add-token-page form")!
+
+	addTokenForm.addEventListener("submit", (event) => {
+		event.preventDefault()
+
+		const formData = new FormData(addTokenForm)
+		const tokenFormData = Array.from(formData.entries())
+			.reduce((acc, [key, value]) => {
+				(acc as any)[key] = value
+				return acc
+			}, {} as AddTokenFormData)
+
+		addTokenFromForm(tokenFormData)
+			.then(() => { navigate(""); return renderTokens() })
+			.catch(console.error) /* TODO: Report error */
+	})
+
 	document.querySelector<HTMLButtonElement>("#add-token-page .button-cancel")
-		?.addEventListener("click", () => navigate(""))
+		?.addEventListener("click", () => { addTokenForm.reset(); navigate("") })
+
+	document.querySelector<HTMLButtonElement>("#add-token-done")
+		?.addEventListener("click", () => addTokenForm.requestSubmit())
 }
 
 main().catch(console.error)

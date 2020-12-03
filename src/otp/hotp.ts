@@ -1,25 +1,34 @@
-// https://tools.ietf.org/html/rfc4226
+/**
+ * The data required to generate an HOTP key.
+ *
+ * https://tools.ietf.org/html/rfc4226
+ */
+export interface Token {
+	/** An arbitrary key value. */
+	readonly secret: ArrayBuffer
 
-import { HOTPToken } from './token'
+	/** One of: "SHA1", "SHA256", "SHA512". */
+	readonly algorithm: "SHA1" | "SHA256" | "SHA512"
 
-export type HOTPParams = Pick<HOTPToken, "secret" | "algorithm" | "digits" | "counter">
+	/** Determines how long of a one-time passcode to display to the user. */
+	readonly digits: 6 | 7 | 8
+
+	/** The initial counter value. */
+	readonly counter: number
+}
+
+export interface ImportedToken extends Omit<Token, "secret" | "algorithm"> {
+	/** An arbitrary key value. */
+	secret: CryptoKey
+}
 
 export const generate = async (
-	{ secret, algorithm, digits, counter }: HOTPParams
+	{ secret, digits, counter }: ImportedToken
 ): Promise<string> => {
 	// Step 1: Generate an HMAC-SHA-1 value Let HS = HMAC-SHA-1(K,C)
-	// TODO: Keep this key persisted outside JS process at time of token scan.
-	const digestAlgorithm = digestAlgorithms[algorithm]
-	const key = await window.crypto.subtle.importKey(
-		"raw",
-		secret,
-		{ name: "HMAC", hash: digestAlgorithm },
-		false,
-		["sign"]
-	)
 	const text = new Uint8Array(8)
 	new DataView(text.buffer).setBigUint64(0, BigInt(counter))
-	const signature = await window.crypto.subtle.sign("HMAC", key, text)
+	const signature = await window.crypto.subtle.sign("HMAC", secret, text)
 
 	// Step 2: Generate a 4-byte string (Dynamic Truncation)
 	const bytes = new Uint8Array(signature)
@@ -27,10 +36,19 @@ export const generate = async (
 	const truncated = new DataView(bytes.buffer).getUint32(offset) & 0x7fffffff
 
 	// Step 3: Compute an HOTP value
-	return String(truncated % (10 ** digits)).padStart(digits, "0")
+	return String(truncated % 10 ** digits).padStart(digits, "0")
 }
 
-const digestAlgorithms: Record<HOTPToken["algorithm"], string> = {
+export const importSecret = (params: Pick<Token, "secret" | "algorithm">): Promise<CryptoKey> =>
+	window.crypto.subtle.importKey(
+		"raw",
+		params.secret,
+		{ name: "HMAC", hash: digestAlgorithms[params.algorithm] },
+		false,
+		["sign"]
+	)
+
+const digestAlgorithms: Record<Token["algorithm"], string> = {
 	SHA1: "SHA-1",
 	SHA256: "SHA-256",
 	SHA512: "SHA-512",

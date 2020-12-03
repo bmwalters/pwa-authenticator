@@ -1,8 +1,20 @@
 // https://github.com/google/google-authenticator/wiki/Key-Uri-Format
 // otpauth://TYPE/LABEL?PARAMETERS
 
-import { Token } from "./token"
+import { Token as HOTPToken } from "./hotp.js"
+import { Token as TOTPToken } from "./totp.js"
 import * as base32 from "./base32.js"
+
+export type Token = (
+	| (HOTPToken & { readonly type: "hotp" })
+	| (TOTPToken & { readonly type: "totp" })
+) & {
+	/** An account name. */
+	readonly accountName: string
+
+	/** The provider or service this account is associated with. */
+	readonly issuer?: string
+}
 
 /**
  * Attempts to parse the given string as an
