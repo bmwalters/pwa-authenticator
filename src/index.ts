@@ -2,7 +2,12 @@ import * as hotp from "./otp/hotp.js"
 import * as totp from "./otp/totp.js"
 import * as steamguard from "./otp/steamguard.js"
 import * as otpauth from "./otp/uri.js"
-import { listTokens, addToken } from "./store.js"
+import {
+	listTokens,
+	addTokenAndBackup,
+	initializeBackup,
+	BackupNotInitializedError,
+} from "./store.js"
 
 let inDragDrop = false
 
@@ -174,8 +179,41 @@ const addTokenFromForm = async (form: AddTokenFormData) => {
 	const importedToken = { ...token, secret: await hotp.importSecret(token) }
 
 	// add token to store
-	await addToken(importedToken)
-	// TODO: store.addTokenAndBackup(token, secret)
+	await addTokenAndBackup(importedToken, token.secret)
+}
+
+const exportBackupPrivateKey = async (privateKey: string) => {
+	const keyFile = new File(
+		[privateKey],
+		"authenticator-backup-private-key.pem",
+		{ type: "application/x-pem-file",
+	})
+	const shareData = { title: "Backup Private Key", files: [keyFile] }
+
+	if (navigator.share) {
+		await navigator.share(shareData)
+	} else {
+		const objectURL = URL.createObjectURL(keyFile)
+		const a = document.createElement("a")
+		a.href = objectURL
+		a.download = keyFile.name
+		document.body.appendChild(a)
+		a.click()
+		a.remove()
+		URL.revokeObjectURL(objectURL)
+	}
+}
+
+const initBackup = async () => {
+	const privateKey = await initializeBackup()
+	try {
+		await exportBackupPrivateKey(privateKey)
+	} catch (error) {
+		// If an error occurred, the user did not save their private key.
+		// TODO: Delete backup key from store; the user can't use it
+		//       and we want to get BackupNotInitializedError again.
+		throw error
+	}
 }
 
 const main = async () => {
@@ -216,6 +254,9 @@ const main = async () => {
 
 	/* 'Add Token' page */
 	const addTokenForm = document.querySelector<HTMLFormElement>("#add-token-page form")!
+	const initializeBackupMessage = document.querySelector<HTMLElement>(
+		"#add-token-page .initialize-backup-message"
+	)
 
 	addTokenForm.addEventListener("submit", (event) => {
 		event.preventDefault()
@@ -229,7 +270,13 @@ const main = async () => {
 
 		addTokenFromForm(tokenFormData)
 			.then(() => { navigate(""); return renderTokens() })
-			.catch(console.error) /* TODO: Report error */
+			.catch((error) => {
+				if (error instanceof BackupNotInitializedError) {
+					initializeBackupMessage.removeAttribute("hidden")
+				} else {
+					console.error(error)
+				}
+			})
 	})
 
 	document.querySelector<HTMLButtonElement>("#add-token-page .button-cancel")
@@ -237,6 +284,16 @@ const main = async () => {
 
 	document.querySelector<HTMLButtonElement>("#add-token-done")
 		?.addEventListener("click", () => addTokenForm.requestSubmit())
+
+	document.querySelector<HTMLButtonElement>("#initialize-backup")
+		?.addEventListener("click", () => {
+			initBackup()
+				.then(() => initializeBackupMessage.setAttribute("hidden", ""))
+				.catch(console.error)
+		})
+
+	// TODO: "Info" page and "Export Backup Data" button
 }
 
+// TODO: Display errors to the user as well as logging.
 main().catch(console.error)

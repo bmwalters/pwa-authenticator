@@ -18,46 +18,98 @@ interface AuthenticatorDatabase extends DBSchema {
 		key: number
 		value: StoredToken
 	}
+	backupPublicKey: {
+		key: "current"
+		value: {
+			key: CryptoKey
+			fingerprint: string
+		}
+	}
+	backup: {
+		key: number
+		value: {
+			secret: ArrayBuffer
+			publicKeyFingerprint: string
+		}
+	}
 }
 
 const openDatabase = () => openDB<AuthenticatorDatabase>("authenticator", 1, {
 	upgrade(db) {
 		db.createObjectStore("tokens", { autoIncrement: true })
+		db.createObjectStore("backupPublicKey")
+		db.createObjectStore("backup")
 	}
 })
-
-export const addToken = async (token: StoredToken): Promise<void> => {
-	// anti-pattern if listtokens is called twice before completing once?
-	const db = await openDatabase()
-	await db.add("tokens", token)
-}
 
 export const listTokens = async (): Promise<StoredToken[]> => {
 	const db = await openDatabase()
 	return await db.getAll("tokens")
 }
 
-// Brainstorming idea for encrypted backups:
-// - During onboarding:
-//   - Generate keypair.
-//   - Have user transfer private key via share sheet, then destroy.
-//   - Store public key in database.
-// - When adding new token:
-//   - Call importSecret to get CryptoKey from secret, then addToken().
-//     - Note: CryptoKey is non-exportable.
-//   - Retrieve public key and encrypt secret. Store ciphertext in db.
-//   - Destroy plaintext secret.
-// - When opening app:
-//   - Call listTokens() and use generate() with CryptoKeys.
-// - When exporting backup:
-//   - List all ciphertext from db and transfer via share sheet.
-//   - User uses private key on another device to decrypt secrets.
-//
-// With this system, the plaintext secret can never be exported.
-// The usable CryptoKey is marked as non-exportable.
-// The encrypted secret requires the private key to decrypt.
-//
-// Alternatives:
-// - Just make CryptoKeys exportable.
-// - Just have ciphertext db, require decrypt on app open.
-// - Use symmetric crypto instead of public/private key crypto.
+/**
+ * Generates a backup keypair, persisting the public key and returning
+ * the corresponding private key in PEM format.
+ */
+export const initializeBackup = async (): Promise<string> => {
+	const keypair = await window.crypto.subtle.generateKey(
+		{
+			name: "RSA-OAEP",
+			modulusLength: 2048,
+			publicExponent: new Uint8Array([1, 0, 1]),
+			hash: "SHA-256",
+		},
+		true,
+		["encrypt", "decrypt"],
+	)
+
+	const publicKeyFingerprint = "SHA256:" + arrayBufferToBase64(
+		await window.crypto.subtle.digest(
+			"SHA-256",
+			await window.crypto.subtle.exportKey("spki", keypair.publicKey),
+		)
+	)
+
+	const db = await openDatabase()
+	await db.put(
+		"backupPublicKey",
+		{ key: keypair.publicKey, fingerprint: publicKeyFingerprint },
+		"current"
+	)
+
+	return await privateKeyToPEM(keypair.privateKey)
+}
+
+export class BackupNotInitializedError extends Error {}
+
+export const addTokenAndBackup = async (token: StoredToken, secret: ArrayBuffer): Promise<void> => {
+	// TODO: Is it safe to reopen the DB in every add/list method?
+	const db = await openDatabase()
+
+	const publicKey = await db.get("backupPublicKey", "current")
+	if (!publicKey)
+		throw new BackupNotInitializedError()
+
+	const ciphertext = await window.crypto.subtle.encrypt(
+		{ name: "RSA-OAEP" },
+		publicKey.key,
+		secret,
+	)
+
+	const tx = db.transaction(["tokens", "backup"], "readwrite", { durability: "strict" })
+	const tokenId = await tx.objectStore("tokens").add(token)
+	await tx.objectStore("backup").add(
+		{ secret: ciphertext, publicKeyFingerprint: publicKey.fingerprint },
+		tokenId
+	)
+	await tx.done
+}
+
+const arrayBufferToBase64 = (buffer: ArrayBuffer): string =>
+	window.btoa(String.fromCharCode(...new Uint8Array(buffer)))
+
+const privateKeyToPEM = async (key: CryptoKey): Promise<string> => {
+	const exported = await window.crypto.subtle.exportKey("pkcs8", key)
+	const exportedBase64 = arrayBufferToBase64(exported)
+	return `-----BEGIN PRIVATE KEY-----\n${exportedBase64}\n-----END PRIVATE KEY-----`
+}
