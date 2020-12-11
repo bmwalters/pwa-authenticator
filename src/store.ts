@@ -1,6 +1,7 @@
 import { ImportedToken as HOTPToken } from "./otp/hotp.js"
 import { ImportedToken as TOTPToken } from "./otp/totp.js"
-import { Token as OTPAuthToken } from "./otp/uri.js"
+import { encodeSharedSecret as encodeSteamguardSecret } from './otp/steamguard.js'
+import { Token as OTPAuthToken, stringify } from "./otp/uri.js"
 import { openDB as openDB, DBSchema } from "idb"
 
 type TokenLabelProps = Pick<OTPAuthToken, "accountName" | "issuer">
@@ -18,27 +19,11 @@ interface AuthenticatorDatabase extends DBSchema {
 		key: number
 		value: StoredToken
 	}
-	backupPublicKey: {
-		key: "current"
-		value: {
-			key: CryptoKey
-			fingerprint: string
-		}
-	}
-	backup: {
-		key: number
-		value: {
-			secret: ArrayBuffer
-			publicKeyFingerprint: string
-		}
-	}
 }
 
 const openDatabase = () => openDB<AuthenticatorDatabase>("authenticator", 1, {
 	upgrade(db) {
 		db.createObjectStore("tokens", { autoIncrement: true })
-		db.createObjectStore("backupPublicKey")
-		db.createObjectStore("backup")
 	}
 })
 
@@ -47,69 +32,89 @@ export const listTokens = async (): Promise<StoredToken[]> => {
 	return await db.getAll("tokens")
 }
 
-/**
- * Generates a backup keypair, persisting the public key and returning
- * the corresponding private key in PEM format.
- */
-export const initializeBackup = async (): Promise<string> => {
-	const keypair = await window.crypto.subtle.generateKey(
-		{
-			name: "RSA-OAEP",
-			modulusLength: 2048,
-			publicExponent: new Uint8Array([1, 0, 1]),
-			hash: "SHA-256",
-		},
-		true,
-		["encrypt", "decrypt"],
-	)
-
-	const publicKeyFingerprint = "SHA256:" + arrayBufferToBase64(
-		await window.crypto.subtle.digest(
-			"SHA-256",
-			await window.crypto.subtle.exportKey("spki", keypair.publicKey),
-		)
-	)
-
-	const db = await openDatabase()
-	await db.put(
-		"backupPublicKey",
-		{ key: keypair.publicKey, fingerprint: publicKeyFingerprint },
-		"current"
-	)
-
-	return await privateKeyToPEM(keypair.privateKey)
-}
-
-export class BackupNotInitializedError extends Error {}
-
-export const addTokenAndBackup = async (token: StoredToken, secret: ArrayBuffer): Promise<void> => {
+export const addToken= async (token: StoredToken): Promise<void> => {
 	// TODO: Is it safe to reopen the DB in every add/list method?
 	const db = await openDatabase()
-
-	const publicKey = await db.get("backupPublicKey", "current")
-	if (!publicKey)
-		throw new BackupNotInitializedError()
-
-	const ciphertext = await window.crypto.subtle.encrypt(
-		{ name: "RSA-OAEP" },
-		publicKey.key,
-		secret,
-	)
-
-	const tx = db.transaction(["tokens", "backup"], "readwrite", { durability: "strict" })
-	const tokenId = await tx.objectStore("tokens").add(token)
-	await tx.objectStore("backup").add(
-		{ secret: ciphertext, publicKeyFingerprint: publicKey.fingerprint },
-		tokenId
-	)
-	await tx.done
+	await db.add("tokens", token)
 }
 
-const arrayBufferToBase64 = (buffer: ArrayBuffer): string =>
-	window.btoa(String.fromCharCode(...new Uint8Array(buffer)))
+/**
+ * https://github.com/andOTP/andOTP/wiki/Backup-encryption
+ */
+export const createBackup = async (passphrase: string): Promise<ArrayBuffer> => {
+	const tokens = await listTokens()
+	const tokenStrings = await Promise.all(
+		tokens.map(async (token) => {
+			const secretAlgorithm = token.secret.algorithm.name
+			if (secretAlgorithm !== "HMAC")
+				throw new Error(`bad token secret algorithm: ${secretAlgorithm}`)
 
-const privateKeyToPEM = async (key: CryptoKey): Promise<string> => {
-	const exported = await window.crypto.subtle.exportKey("pkcs8", key)
-	const exportedBase64 = arrayBufferToBase64(exported)
-	return `-----BEGIN PRIVATE KEY-----\n${exportedBase64}\n-----END PRIVATE KEY-----`
+			let hash = (token.secret.algorithm as HmacKeyGenParams).hash
+			if (typeof hash !== "string") hash = hash.name
+			if (
+				hash !== "SHA-1" as const &&
+				hash !== "SHA-256" as const &&
+				hash !== "SHA-512" as const
+			)
+				throw new Error(`bad token secret hash algorithm: ${hash}`)
+
+			const secret = await window.crypto.subtle.exportKey("raw", token.secret)
+
+			switch (token.type) {
+			case "steamguard":
+				return JSON.stringify({
+					...token,
+					secret: await encodeSteamguardSecret(secret)
+				})
+			case "hotp":
+			case "totp":
+				return stringify({ ...token, algorithm: hash, secret })
+			}
+		})
+	)
+	const backupString = tokenStrings.join("\n")
+
+	const iterations = 100_000
+	const salt = window.crypto.getRandomValues(new Uint8Array(12))
+	const encryptionAlgorithm = { name: "AES-GCM", length: 256 }
+	const key = await window.crypto.subtle.deriveKey(
+		{ name: "PBKDF2", hash: "SHA-1", salt, iterations },
+		await window.crypto.subtle.importKey(
+			"raw",
+			new TextEncoder().encode(passphrase),
+			"PBKDF2",
+			false,
+			["deriveBits", "deriveKey"],
+		),
+		encryptionAlgorithm,
+		false,
+		["encrypt"],
+	)
+
+	const iv = window.crypto.getRandomValues(new Uint8Array(12))
+	const ciphertext = new Uint8Array(await window.crypto.subtle.encrypt(
+		{ ...encryptionAlgorithm, iv },
+		key,
+		new TextEncoder().encode(backupString),
+	))
+
+	const iterationsBuffer = new Uint8Array(4)
+	new DataView(
+		iterationsBuffer.buffer,
+		iterationsBuffer.byteOffset,
+		iterationsBuffer.byteLength
+	).setUint32(0, iterations, false)
+
+	const resultBuffer = new Uint8Array(
+		iterationsBuffer.length +
+		salt.length +
+		iv.length +
+		new Uint8Array(ciphertext).length
+	)
+	resultBuffer.set(iterationsBuffer, 0)
+	resultBuffer.set(salt, iterationsBuffer.length)
+	resultBuffer.set(iv, iterationsBuffer.length + salt.length)
+	resultBuffer.set(ciphertext, iterationsBuffer.length + salt.length + iv.length)
+
+	return resultBuffer
 }

@@ -1,4 +1,5 @@
 import { generate } from './totp'
+import { importSecret } from './hotp'
 
 /**
  * WebCrypto Mocks
@@ -82,28 +83,31 @@ beforeAll(() => {
  */
 
 it.each([
-	[new Date("1970-01-01T00:00:59Z"), "SHA1",   "94287082"] as const,
-	[new Date("1970-01-01T00:00:59Z"), "SHA256", "46119246"] as const,
-	[new Date("1970-01-01T00:00:59Z"), "SHA512", "90693936"] as const,
-	[new Date("2005-03-18T01:58:29Z"), "SHA1",   "07081804"] as const,
-	[new Date("2005-03-18T01:58:29Z"), "SHA256", "68084774"] as const,
-	[new Date("2005-03-18T01:58:29Z"), "SHA512", "25091201"] as const,
-	[new Date("2005-03-18T01:58:31Z"), "SHA1",   "14050471"] as const,
-	[new Date("2005-03-18T01:58:31Z"), "SHA256", "67062674"] as const,
-	[new Date("2005-03-18T01:58:31Z"), "SHA512", "99943326"] as const,
-	[new Date("2009-02-13T23:31:30Z"), "SHA1",   "89005924"] as const,
-	[new Date("2009-02-13T23:31:30Z"), "SHA256", "91819424"] as const,
-	[new Date("2009-02-13T23:31:30Z"), "SHA512", "93441116"] as const,
-	[new Date("2033-05-18T03:33:20Z"), "SHA1",   "69279037"] as const,
-	[new Date("2033-05-18T03:33:20Z"), "SHA256", "90698825"] as const,
-	[new Date("2033-05-18T03:33:20Z"), "SHA512", "38618901"] as const,
-	[new Date("2603-10-11T11:33:20Z"), "SHA1",   "65353130"] as const,
-	[new Date("2603-10-11T11:33:20Z"), "SHA256", "77737706"] as const,
-	[new Date("2603-10-11T11:33:20Z"), "SHA512", "47863826"] as const,
+	[new Date("1970-01-01T00:00:59Z"), "SHA-1",   "94287082"] as const,
+	[new Date("1970-01-01T00:00:59Z"), "SHA-256", "46119246"] as const,
+	[new Date("1970-01-01T00:00:59Z"), "SHA-512", "90693936"] as const,
+	[new Date("2005-03-18T01:58:29Z"), "SHA-1",   "07081804"] as const,
+	[new Date("2005-03-18T01:58:29Z"), "SHA-256", "68084774"] as const,
+	[new Date("2005-03-18T01:58:29Z"), "SHA-512", "25091201"] as const,
+	[new Date("2005-03-18T01:58:31Z"), "SHA-1",   "14050471"] as const,
+	[new Date("2005-03-18T01:58:31Z"), "SHA-256", "67062674"] as const,
+	[new Date("2005-03-18T01:58:31Z"), "SHA-512", "99943326"] as const,
+	[new Date("2009-02-13T23:31:30Z"), "SHA-1",   "89005924"] as const,
+	[new Date("2009-02-13T23:31:30Z"), "SHA-256", "91819424"] as const,
+	[new Date("2009-02-13T23:31:30Z"), "SHA-512", "93441116"] as const,
+	[new Date("2033-05-18T03:33:20Z"), "SHA-1",   "69279037"] as const,
+	[new Date("2033-05-18T03:33:20Z"), "SHA-256", "90698825"] as const,
+	[new Date("2033-05-18T03:33:20Z"), "SHA-512", "38618901"] as const,
+	[new Date("2603-10-11T11:33:20Z"), "SHA-1",   "65353130"] as const,
+	[new Date("2603-10-11T11:33:20Z"), "SHA-256", "77737706"] as const,
+	[new Date("2603-10-11T11:33:20Z"), "SHA-512", "47863826"] as const,
 ])("generates correct totp values", async (date, algorithm, totp) => {
-	await expect(generate({
-		secret: testSecrets[({ "SHA1": 0, "SHA256": 1, "SHA512": 2 })[algorithm]],
+	const secret = await importSecret({
+		secret: testSecrets[({ "SHA-1": 0, "SHA-256": 1, "SHA-512": 2 })[algorithm]],
 		algorithm,
+	})
+	await expect(generate({
+		secret,
 		digits: 8,
 		period: 30,
 	}, date)).resolves.toEqual(totp)

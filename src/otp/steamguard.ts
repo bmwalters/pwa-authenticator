@@ -32,6 +32,15 @@ export const generate = async (secret: CryptoKey, date: Date): Promise<string> =
 
 export const importSharedSecret = (sharedSecret: string): Promise<CryptoKey> =>
 	importHOTPSecret({
-		secret: new TextEncoder().encode(atob(sharedSecret)),
-		algorithm: "SHA1"
+		secret: base64Decode(sharedSecret),
+		algorithm: "SHA-1",
 	})
+
+export const encodeSharedSecret = (sharedSecret: ArrayBuffer): string =>
+	base64Encode(sharedSecret)
+
+const base64Decode = (base64: string): ArrayBuffer =>
+	Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
+
+const base64Encode = (data: ArrayBuffer): string =>
+	btoa(Array.from(new Uint8Array(data), (b) => String.fromCharCode(b)).join(''))

@@ -7,8 +7,8 @@ export interface Token {
 	/** An arbitrary key value. */
 	readonly secret: ArrayBuffer
 
-	/** One of: "SHA1", "SHA256", "SHA512". */
-	readonly algorithm: "SHA1" | "SHA256" | "SHA512"
+	/** One of: "SHA-1", "SHA-256", "SHA-512". */
+	readonly algorithm: "SHA-1" | "SHA-256" | "SHA-512"
 
 	/** Determines how long of a one-time passcode to display to the user. */
 	readonly digits: 6 | 7 | 8
@@ -43,13 +43,7 @@ export const importSecret = (params: Pick<Token, "secret" | "algorithm">): Promi
 	window.crypto.subtle.importKey(
 		"raw",
 		params.secret,
-		{ name: "HMAC", hash: digestAlgorithms[params.algorithm] },
-		false,
+		{ name: "HMAC", hash: params.algorithm },
+		true,
 		["sign"]
 	)
-
-const digestAlgorithms: Record<Token["algorithm"], string> = {
-	SHA1: "SHA-1",
-	SHA256: "SHA-256",
-	SHA512: "SHA-512",
-}

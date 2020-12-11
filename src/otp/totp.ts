@@ -14,7 +14,7 @@ export interface Token extends Omit<HOTPToken, "counter"> {
 	period: number
 }
 
-export interface ImportedToken extends Omit<Token, "secret"> {
+export interface ImportedToken extends Omit<Token, "secret" | "algorithm"> {
 	secret: ImportedHOTPToken["secret"]
 }
 

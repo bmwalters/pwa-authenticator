@@ -2,12 +2,7 @@ import * as hotp from "./otp/hotp.js"
 import * as totp from "./otp/totp.js"
 import * as steamguard from "./otp/steamguard.js"
 import * as otpauth from "./otp/uri.js"
-import {
-	listTokens,
-	addTokenAndBackup,
-	initializeBackup,
-	BackupNotInitializedError,
-} from "./store.js"
+import { listTokens, addToken, createBackup } from "./store.js"
 
 let inDragDrop = false
 
@@ -155,9 +150,6 @@ const setupDragAndDrop = () => {
 	})
 }
 
-// routes are defined in index.html.
-declare const routes: Record<"" | "add", string>
-
 /** The name:value pairs from inputs in `#add-token-page form`. */
 interface AddTokenFormData {
 	account: string
@@ -179,24 +171,20 @@ const addTokenFromForm = async (form: AddTokenFormData) => {
 	const importedToken = { ...token, secret: await hotp.importSecret(token) }
 
 	// add token to store
-	await addTokenAndBackup(importedToken, token.secret)
+	await addToken(importedToken)
 }
 
-const exportBackupPrivateKey = async (privateKey: string) => {
-	const keyFile = new File(
-		[privateKey],
-		"authenticator-backup-private-key.pem",
-		{ type: "application/x-pem-file",
-	})
-	const shareData = { title: "Backup Private Key", files: [keyFile] }
+const exportBackup = async (backup: ArrayBuffer) => {
+	const backupFile = new File([backup], "authenticator-backup.aes")
+	const shareData = { title: "Authenticator Backup", files: [backupFile] }
 
 	if (navigator.share) {
 		await navigator.share(shareData)
 	} else {
-		const objectURL = URL.createObjectURL(keyFile)
+		const objectURL = URL.createObjectURL(backupFile)
 		const a = document.createElement("a")
 		a.href = objectURL
-		a.download = keyFile.name
+		a.download = backupFile.name
 		document.body.appendChild(a)
 		a.click()
 		a.remove()
@@ -204,17 +192,8 @@ const exportBackupPrivateKey = async (privateKey: string) => {
 	}
 }
 
-const initBackup = async () => {
-	const privateKey = await initializeBackup()
-	try {
-		await exportBackupPrivateKey(privateKey)
-	} catch (error) {
-		// If an error occurred, the user did not save their private key.
-		// TODO: Delete backup key from store; the user can't use it
-		//       and we want to get BackupNotInitializedError again.
-		throw error
-	}
-}
+// routes are defined in index.html.
+declare const routes: Record<"" | "add" | "info", string>
 
 const main = async () => {
 	/* PWA initialization */
@@ -252,11 +231,11 @@ const main = async () => {
 	document.querySelector<HTMLButtonElement>("#token-list-page .button-edit")
 		?.addEventListener("click", () => setupDragAndDrop())
 
+	document.querySelector<HTMLButtonElement>("#token-list-page .button-info")
+		?.addEventListener("click", () => navigate("info"))
+
 	/* 'Add Token' page */
 	const addTokenForm = document.querySelector<HTMLFormElement>("#add-token-page form")!
-	const initializeBackupMessage = document.querySelector<HTMLElement>(
-		"#add-token-page .initialize-backup-message"
-	)
 
 	addTokenForm.addEventListener("submit", (event) => {
 		event.preventDefault()
@@ -269,14 +248,12 @@ const main = async () => {
 			}, {} as AddTokenFormData)
 
 		addTokenFromForm(tokenFormData)
-			.then(() => { navigate(""); return renderTokens() })
-			.catch((error) => {
-				if (error instanceof BackupNotInitializedError) {
-					initializeBackupMessage.removeAttribute("hidden")
-				} else {
-					console.error(error)
-				}
+			.then(() => {
+				addTokenForm.reset()
+				navigate("")
+				return renderTokens()
 			})
+			.catch(console.error)
 	})
 
 	document.querySelector<HTMLButtonElement>("#add-token-page .button-cancel")
@@ -285,14 +262,23 @@ const main = async () => {
 	document.querySelector<HTMLButtonElement>("#add-token-done")
 		?.addEventListener("click", () => addTokenForm.requestSubmit())
 
-	document.querySelector<HTMLButtonElement>("#initialize-backup")
-		?.addEventListener("click", () => {
-			initBackup()
-				.then(() => initializeBackupMessage.setAttribute("hidden", ""))
-				.catch(console.error)
-		})
+	/* 'Info' page */
+	const createBackupForm = document.querySelector<HTMLFormElement>("#backup-section form")!
 
-	// TODO: "Info" page and "Export Backup Data" button
+	createBackupForm.addEventListener("submit", (event) => {
+		event.preventDefault()
+
+		const formData = new FormData(createBackupForm)
+		const password = formData.get("password") as string
+
+		createBackup(password)
+			.then((backup) => exportBackup(backup))
+			.then(() => { navigate("") })
+			.catch(console.error)
+	})
+
+	document.querySelector<HTMLButtonElement>("#info-page .button-cancel")
+		?.addEventListener("click", () => { createBackupForm.reset(); navigate("") })
 }
 
 // TODO: Display errors to the user as well as logging.

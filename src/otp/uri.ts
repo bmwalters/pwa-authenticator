@@ -1,6 +1,3 @@
-// https://github.com/google/google-authenticator/wiki/Key-Uri-Format
-// otpauth://TYPE/LABEL?PARAMETERS
-
 import { Token as HOTPToken } from "./hotp.js"
 import { Token as TOTPToken } from "./totp.js"
 import * as base32 from "./base32.js"
@@ -46,13 +43,14 @@ export const parse = (uriString: string): Token => {
 	if (issuer !== labelIssuer)
 		throw new ParseError("otpauth uri issuer parameter must equal label issuer")
 
-	const algorithm = parameters.get("algorithm") ?? "SHA1"
+	const algorithmName = parameters.get("algorithm") ?? "SHA1"
 	if (
-		algorithm !== ("SHA1" as const) &&
-		algorithm !== ("SHA256" as const) &&
-		algorithm !== ("SHA512" as const)
+		algorithmName !== ("SHA1" as const) &&
+		algorithmName !== ("SHA256" as const) &&
+		algorithmName !== ("SHA512" as const)
 	)
 		throw new ParseError("otpauth uri algorithm must be SHA1/SHA256/SHA512")
+	const algorithm = digestAlgorithms[algorithmName]
 
 	const digits = Number(parameters.get("digits") ?? "6")
 	if (
@@ -99,6 +97,12 @@ const parseLabel = (
 	return { accountName: part2 ?? part1, issuer: part2 ? part1 : undefined }
 }
 
+const digestAlgorithms: Record<"SHA1" | "SHA256" | "SHA512", Token["algorithm"]> = {
+	SHA1: "SHA-1",
+	SHA256: "SHA-256",
+	SHA512: "SHA-512",
+}
+
 /**
  * Encodes the given token as an
  * [otpauth URI](https://github.com/google/google-authenticator/wiki/Key-Uri-Format).
@@ -107,6 +111,35 @@ const parseLabel = (
  * @returns otpauth URI string
  */
 export const stringify = (token: Token): string => {
-	// TODO
-	return ""
+	const encodedAccount = encodeURIComponent(token.accountName)
+	const label = token.issuer
+		? `${encodeURIComponent(token.issuer)}:${encodedAccount}`
+		: encodedAccount
+
+	const reverseDigestAlgorithm = (algorithm: string): string =>
+		Object.entries(digestAlgorithms).filter(([_, v]) => v === algorithm)[0][0]
+
+	const parameters = new Map<string, string>()
+	parameters.set("secret", base32.encode(token.secret).toUpperCase())
+
+	if (token.issuer)
+		parameters.set("issuer", encodeURIComponent(token.issuer))
+
+	parameters.set("algorithm", reverseDigestAlgorithm(token.algorithm))
+	parameters.set("digits", token.digits.toString())
+
+	switch (token.type) {
+	case "hotp":
+		parameters.set("counter", token.counter.toString())
+		break
+	case "totp":
+		parameters.set("period", token.period.toString())
+		break
+	}
+
+	const parameterString = [...parameters.keys()]
+		.map((key) => `${key}=${parameters.get(key)}`)
+		.join("&")
+
+	return `otpauth://${token.type}/${label}?${parameterString}`
 }

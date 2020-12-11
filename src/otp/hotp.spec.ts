@@ -1,4 +1,4 @@
-import { generate } from './hotp'
+import { generate, importSecret } from './hotp'
 
 /**
  * WebCrypto Mocks
@@ -64,8 +64,7 @@ it.each([
   [9, "520489"],
 ])("generates appropriate hotp values", async (counter, hotp) => {
   await expect(generate({
-    secret,
-    algorithm: "SHA1",
+    secret: await importSecret({ secret, algorithm: "SHA-1" }),
     digits: 6,
     counter,
   })).resolves.toEqual(hotp)

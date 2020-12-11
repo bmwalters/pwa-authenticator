@@ -306,7 +306,7 @@
 			<footer>
 				<nav>
 					<button class="plain button-edit">Edit</button>
-					<button class="plain icon">ⓘ</button>
+					<button class="plain icon button-info">ⓘ</button>
 					<button class="plain icon button-add-token">＋</button>
 				</nav>
 			</footer>
@@ -321,14 +321,6 @@
 				</nav>
 			</header>
 			<section>
-				<aside class="initialize-backup-message" hidden>
-					<p>
-						You must download your private key before you can add a
-						token to your authenticator. Keep it safe or you will
-						not be able to decrypt backups of your tokens.
-					</p>
-					<button id="initialize-backup">Download private key</button>
-				</aside>
 				<form>
 					<label>
 						Account Name
@@ -390,10 +382,32 @@
 			</section>
 		</section>
 
+		<section id="info-page" hidden>
+			<header>
+				<nav>
+					<button class="plain button-cancel">Back</button>
+					<h1>Info</h1>
+					<div></div>
+				</nav>
+			</header>
+			<section id="backup-section">
+				<h2>Export Backup</h2>
+				<p>Choose a password to export an encrypted backup of your token secrets.</p>
+				<form>
+					<label>
+						Backup Password
+						<input type="password" name="password">
+					</label>
+					<button id="export-backup">Export Backup</button>
+				</form>
+			</section>
+		</section>
+
 		<script>
 			const routes = {
 				"": "#token-list-page",
-				"add": "#add-token-page"
+				"add": "#add-token-page",
+				"info": "#info-page",
 			}
 
 			let hash = window.location.hash.substring(2)
