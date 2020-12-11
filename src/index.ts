@@ -74,7 +74,7 @@ const updateProgressRing = () => {
 	time -= 1
 	if (time < 0) {
 		renderTokens().catch(console.error)
-		time = 30
+		time = 29
 		progressRing.classList.remove("animating")
 	}
 
