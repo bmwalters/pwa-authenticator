@@ -249,9 +249,7 @@ const main = async () => {
 	/* 'Add Token' page */
 	const addTokenForm = document.querySelector<HTMLFormElement>("#add-token-page form")!
 
-	addTokenForm.addEventListener("submit", (event) => {
-		event.preventDefault()
-
+	const handleAddTokenFormSubmit = () => {
 		const formData = new FormData(addTokenForm)
 		const tokenFormData = Array.from(formData.entries())
 			.reduce((acc, [key, value]) => {
@@ -266,13 +264,21 @@ const main = async () => {
 				return renderTokens()
 			})
 			.catch(console.error)
+	}
+
+	addTokenForm.addEventListener("submit", (event) => {
+		event.preventDefault()
+		handleAddTokenFormSubmit()
 	})
 
 	document.querySelector<HTMLButtonElement>("#add-token-page .button-cancel")
 		?.addEventListener("click", () => { addTokenForm.reset(); navigate("") })
 
 	document.querySelector<HTMLButtonElement>("#add-token-done")
-		?.addEventListener("click", () => addTokenForm.requestSubmit())
+		?.addEventListener("click", () => {
+			if (addTokenForm.requestSubmit) addTokenForm.requestSubmit()
+			else handleAddTokenFormSubmit()
+		})
 
 	/* 'Info' page */
 	const createBackupForm = document.querySelector<HTMLFormElement>("#backup-section form")!

@@ -10,7 +10,7 @@ export const generate = async (secret: CryptoKey, date: Date): Promise<string> =
 	// Step 1: Generate an HMAC-SHA-1 value Let HS = HMAC-SHA-1(K,C)
 	const counter = Math.floor((date.getTime() / 1000) / 30)
 	const text = new Uint8Array(8)
-	new DataView(text.buffer).setBigUint64(0, BigInt(counter))
+	new DataView(text.buffer).setBigUint64(0, BigInt(counter)) // TODO: iOS 12 Safari has no BigInt
 	const signature = await window.crypto.subtle.sign("HMAC", secret, text)
 
 	// Step 2: Generate a 4-byte string (Dynamic Truncation)
