@@ -161,6 +161,10 @@ interface AddTokenFormData {
 }
 
 const addTokenFromForm = async (form: AddTokenFormData) => {
+	// handle special cases of issuers
+	if (form.issuer === "Steam")
+		return await addSteamguardTokenFromForm(form)
+
 	// convert form data to otpauth uri
 	const encodedAccount = encodeURIComponent(form.account)
 	const label = form.issuer ? `${encodeURIComponent(form.issuer)}:${encodedAccount}` : encodedAccount
@@ -172,6 +176,14 @@ const addTokenFromForm = async (form: AddTokenFormData) => {
 
 	// add token to store
 	await addToken(importedToken)
+}
+
+const addSteamguardTokenFromForm = async (form: AddTokenFormData) => {
+	await addToken({
+		type: "steamguard",
+		accountName: form.account,
+		secret: await steamguard.importSharedSecret(form.secret),
+	})
 }
 
 const exportBackup = async (backup: ArrayBuffer) => {
